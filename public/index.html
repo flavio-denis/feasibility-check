@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feasibility check</title>
+<script>
+  // Apply the saved theme before the page paints (no flash).
+  (function () {
+    var t = localStorage.getItem('feas.theme')
+    if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    document.documentElement.dataset.theme = t
+  })()
+</script>
+<link rel="icon" id="favicon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="appbar">
+  <a class="brand" href="#/"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span>Feasibility check</span></a>
+  <nav class="nav" aria-label="Main"><a href="#/runs" data-nav="runs">History</a></nav>
+  <div class="end">
+    <a class="chip live hidden" id="liveChip" href="#/"><span class="dot"></span><span id="liveText"></span></a>
+    <button class="chip" id="setupChip" aria-haspopup="dialog" aria-expanded="false" aria-controls="setupPop"><span class="dot"></span><span id="setupText">Checking setup…</span></button>
+    <button class="iconbtn" id="themeBtn"></button>
+    <a class="btn btn-primary newbtn" href="#/" id="newBtn" aria-label="New check"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>New check</span></a>
+  </div>
+  <div class="popover hidden" id="setupPop" role="dialog" aria-label="Setup"></div>
+</header>
+
+<main id="view"></main>
+
+<dialog id="lightbox" aria-label="Screenshot">
+  <div class="dhead"><h3 id="lbTitle"></h3><a class="btn btn-sm" id="lbOpen" target="_blank" rel="noopener">Open full size</a><button class="btn btn-sm btn-quiet" data-close>Close</button></div>
+  <img id="lbImg" alt="">
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="announce" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

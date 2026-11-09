@@ -1,0 +1,15 @@
+{
+  "name": "feasibility-check",
+  "private": true,
+  "type": "module",
+  "description": "Local web app: retailer web feasibility check driven by the Claude Agent SDK on your own Claude login.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.319",
+    "zod": "4.6.7"
+  }
+}
