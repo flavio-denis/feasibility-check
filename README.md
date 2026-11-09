@@ -24,7 +24,7 @@ Built for the COB team: plain words throughout, technical details only when you 
 ## Quick start
 
 ```bash
-git clone git@github.com:flavio-denis/feasibility-check.git
+git clone https://github.com/flavio-denis/feasibility-check.git
 cd feasibility-check
 npm install
 claude login        # once, if Claude Code is not signed in yet
