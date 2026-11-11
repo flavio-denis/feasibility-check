@@ -75,7 +75,7 @@ The app uses the **Claude Agent SDK** with the Claude Code login on your compute
 7. Watch the page cards and the **What's happening** panel. Most checks take 1–6 minutes.
 8. If an amber **Your turn** card appears, do what it says in the named window (BrowserOS or Chrome), then click its button:
    - **Prove you are human (CAPTCHA):** solve it, then click *Done, it's solved*. If you can't, click *I can't solve it* and the other browser is tried. A CAPTCHA never makes a retailer not feasible.
-   - **Country block:** turn on a VPN for the named country, then click *Done, the VPN is on*.
+   - **Country block or a page that keeps loading:** turn on a VPN for the named country, then click *Done, the VPN is on*. The page is hard-refreshed (cache skipped) and the check carries on; leave the VPN on until it finishes. You are asked at most twice per check.
    - **Login:** sign in yourself in the browser, *Give the tool a login* (typed into the site by the app, kept in memory only), or *No login available*. If signing in asks for a one-time code, click *Yes, it needed a one-time code*.
 9. When it finishes, follow **What to do next**: *Copy report* and paste it into the feasibility ticket, set the ticket status it names, and copy the test URLs for the onboarding ticket later.
 
@@ -131,7 +131,7 @@ npm start
 ## How the check decides
 
 - **Bot protection** is checked once for the whole retailer: solved on the home page, then every page is checked in the same browser session. It is never a reason for "not feasible"; the report notes that onboarding needs a bypass.
-- **Country block:** you turn on a VPN and the check goes on. The report notes that onboarding needs a tunnel for that country. Without a VPN the result is Manual check needed.
+- **Country block:** you turn on a VPN and the check goes on. This also covers a page that keeps loading (often the store finder): the tool waits, reloads once, then asks for a VPN, hard-refreshes the page and continues. The report notes that onboarding needs a tunnel for that country. Without a VPN the blocked page is Manual check needed (for the home page, the whole result; for store pages, only the store pages).
 - **Login:** with an account (you sign in, or hand it to the tool) it is Feasible with the note "onboarding needs a login account". Signed in but still no prices gives Needs CSM ("Can the client provide an account that shows prices?"). No account gives Needs CSM. A login that needs a one-time code every time is Not feasible.
 - **Prices missing, everything else there:** the result lets your team choose **Onboard without prices** or **Ask the CSM**. *Change decision* undoes it.
 - **Storefront inside a marketplace** (a shop on Trendyol, TMall, JD, a dark store): if its pages lead out to the main marketplace, the result is Needs CSM ("which site to onboard?").

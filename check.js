@@ -4,6 +4,7 @@ import { computeVerdict, requiredCoreKeys } from './verdict.js'
 import { detectBotBlock, classifyProbe } from './detect.js'
 import { jiraSection, verdictReason, nextSteps, statusPhrase, loginUsedOf, clientLine } from './report.js'
 import { solverFor } from './solvers.js'
+import { vpnReply } from './tools.js'
 import { _handleForTest as handle, fillLogin, firstPrompt } from './agent.js'
 
 const allPass = Object.fromEntries(requiredCoreKeys().map(k => [k, { area: k.split(':')[0], page: k.split(':')[1], status: 'pass', evidence: 'ok' }]))
@@ -243,6 +244,24 @@ assert.equal(statusPhrase({ area: 'bot', status: 'bypass_needed' }), 'Bot protec
   assert.ok(jr.html.includes('<strong>Client:</strong> &lt;b&gt;Evil&lt;/b&gt;') && !jr.html.includes('<i>x</i>'), 'client text escaped')
   assert.match(jr.md, /\*\*Client:\*\* <b>Evil<\/b>\. Brands used: <i>x<\/i>\./)
   assert.ok(!jiraSection({ input: { name: 'R', url: 'https://r.test/' }, checks: allPass, result: {}, verdict: feasible, startedAt: 0, endedAt: 1 }).md.includes('Client'), 'old runs: no client line')
+}
+
+// VPN: after "VPN on" the agent is told to hard-refresh; at most 2 asks per run
+assert.match(vpnReply('vpn_on', 1), /^vpn_on: hard-refresh/)
+assert.match(vpnReply('vpn_on', 2), /ignoreCache: true/, 'BrowserOS hard refresh skips the cache')
+assert.match(vpnReply('vpn_on', 1), /type "reload" and ignoreCache true/, 'Chrome hard refresh skips the cache')
+assert.equal(vpnReply('no_vpn', 1), 'no_vpn')
+assert.equal(vpnReply('timeout', 2), 'timeout')
+assert.match(vpnReply(null, 3), /^limit_reached/, 'third ask is refused without bothering the person')
+
+// Store pages not reachable (no VPN): core verdict unchanged, a manual step is added
+{
+  const ch = { ...allPass, 'mla:store': { area: 'mla', page: 'store', status: 'blocked', evidence: 'kept loading, no VPN' } }
+  const vv = computeVerdict(ch, { completed: true, options: { mla: true } })
+  assert.equal(vv.core, 'Feasible')
+  assert.equal(vv.optional.mla, 'Manual check needed')
+  assert.ok(nextSteps(vv, ch, {}).steps.some(s => /Check the store pages by hand/.test(s.text)))
+  assert.ok(!nextSteps(computeVerdict(allPass, { completed: true, options: { mla: true } }), allPass, {}).steps.some(s => /by hand/.test(s.text)), 'no step when nothing is blocked')
 }
 
 console.log('check.js: all assertions passed')

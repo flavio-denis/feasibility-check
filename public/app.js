@@ -514,7 +514,8 @@ async function showRun(id) {
                <p class="faint" style="font-size:12px">If you can’t solve it, we try the other browser. A bot check never makes a retailer not feasible.</p>`
         : q.kind === 'vpn'
         ? html`<h2 id="turnTitle">Turn on a VPN${q.country ? html` set to ${q.country}` : ''}</h2>
-               <p id="turnMsg">The website only opens from ${q.country || 'its own country'}. Turn on a VPN for that country on this computer, then click Done. The check carries on with the VPN on.</p>
+               <p id="turnMsg">${q.message || `The website only opens from ${q.country || 'its own country'}. Turn on a VPN for that country on this computer, then click Done.`}</p>
+               <p class="faint" style="font-size:12px">After you click Done, the page is reloaded fresh and the check carries on with the VPN on. Leave the VPN on until the check finishes.</p>
                <div class="actions">
                  <button class="btn btn-primary" data-answer="vpn_on">Done, the VPN is on</button>
                  <button class="btn" data-answer="no_vpn">I can’t use a VPN</button>

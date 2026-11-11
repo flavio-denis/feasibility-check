@@ -221,7 +221,7 @@ export function nextSteps(verdict, checks, result, input = {}, { loginUsed = fal
       out.steps.push({ text: 'When the onboarding ticket appears, add the test URLs', action: 'copyUrls' })
       out.notes = []
       if ((verdict.bypass || []).length) out.notes.push(`Bot protection${vendors.length ? ` (${vendors.join(', ')})` : ''}: onboarding needs a bypass.`)
-      if ((verdict.geo || []).length) out.notes.push('Country block: the site only opened with a VPN. Onboarding needs a tunnel for that country.')
+      if ((verdict.geo || []).length) out.notes.push(`Country block: ${trim(verdict.geo[0]).replace(/\.?$/, '.')} Onboarding needs a tunnel for that country.`)
       if ((verdict.account || []).length) out.notes.push('Login: prices need signing in. Onboarding needs a login account.')
       if (noClientBrands(input, result)) out.notes.push(`Client: no ${input.client} products found on this site. Confirm with the CSM that ${input.client} sells here.`)
       out.note = out.notes.length ? out.notes.join(' ') : null
@@ -267,5 +267,8 @@ export function nextSteps(verdict, checks, result, input = {}, { loginUsed = fal
     default:
       out.steps.push({ text: 'Run the check again', action: 'runAgain' })
   }
+  // Store pages or banners could not be reached (e.g. the page kept loading and no VPN was available).
+  const manualOpt = Object.entries(verdict.optional || {}).filter(([, v]) => v === 'Manual check needed').map(([k]) => k === 'mla' ? 'store pages' : 'banners')
+  if (manualOpt.length && verdict.core !== 'Incomplete') out.steps.push({ text: `Check the ${manualOpt.join(' and ')} by hand (turn on a VPN for the retailer’s country if the page keeps loading) and add what you found to the ticket` })
   return out
 }

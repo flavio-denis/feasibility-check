@@ -5,6 +5,14 @@ import { solverFor } from './solvers.js'
 
 const HUMAN_TIMEOUT_MS = 15 * 60 * 1000
 const MAX_CAPTCHA_ASKS_PER_VENDOR = 3
+const MAX_VPN_ASKS = 2 // per run: the first ask, plus one more if the page still keeps loading
+
+/** What the agent is told after a VPN answer. Pure, so check.js can test it. */
+export function vpnReply(answer, asks) {
+  if (asks > MAX_VPN_ASKS) return 'limit_reached: the human was already asked twice to turn on a VPN. Do not ask again; record this page as blocked and continue.'
+  if (answer === 'vpn_on') return 'vpn_on: hard-refresh the page now (it reloads everything and skips the cache). BrowserOS: `run` with code `await browser.page(<pageId>).cdp(\'Page.reload\', JSON.stringify({ ignoreCache: true }))` using your tab\'s page id. Chrome: `navigate_page` with type "reload" and ignoreCache true. Wait 10 seconds, then probe and take a screenshot.'
+  return answer
+}
 
 const text = t => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t) }] })
 
@@ -14,6 +22,7 @@ const text = t => ({ content: [{ type: 'text', text: typeof t === 'string' ? t :
  */
 export function makeFeasServer(run) {
   const captchaAsks = {}
+  let vpnAsks = 0
 
   const recordCheck = tool(
     'record_check',
@@ -72,7 +81,7 @@ export function makeFeasServer(run) {
     [
       'Pause and ask the human.',
       'kind=captcha: they solve it in the named browser window. Answer: solved | cant_solve | not_captcha | timeout | limit_reached.',
-      'kind=vpn: the site is blocked for this country; they turn on a VPN for `country`. Answer: vpn_on | no_vpn | timeout.',
+      'kind=vpn: the site is blocked for this country, or a page keeps loading and may only work from that country; they turn on a VPN for `country`. Put the reason in `message`. Answer: vpn_on (then hard-refresh the page as the answer says) | no_vpn | timeout | limit_reached.',
       'kind=login: prices need signing in. Answer: signed_in (they signed in themselves in the named window) | signed_in_otp (they signed in, but it needed a one-time code: record login fail) | credentials_ready (type {{LOGIN_USERNAME}} and {{LOGIN_PASSWORD}} exactly as written into the login form; the app fills in the real values) | no_account | timeout.',
       'kind=question: answer is one of options or free text.',
       'Never ask for passwords in a question; use kind=login.'
@@ -96,7 +105,9 @@ export function makeFeasServer(run) {
             : 'limit_reached: the human already solved this vendor 3 times in Chrome. Do not ask again; switch to the BrowserOS neo fallback.')
         }
       }
+      if (args.kind === 'vpn' && ++vpnAsks > MAX_VPN_ASKS) return text(vpnReply(null, vpnAsks))
       const answer = await run.waitForHuman(args, HUMAN_TIMEOUT_MS)
+      if (args.kind === 'vpn') return text(vpnReply(answer, vpnAsks))
       if (answer === 'credentials_ready') return text('credentials_ready: type {{LOGIN_USERNAME}} into the username/email field and {{LOGIN_PASSWORD}} into the password field, exactly as written, then submit. Never write these placeholders anywhere else.')
       return text(answer)
     }

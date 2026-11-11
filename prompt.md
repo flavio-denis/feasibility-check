@@ -70,6 +70,7 @@ After opening a page, run this probe with BrowserOS `evaluate_in_page` or chrome
    - Corporate, investor or brand site with no product catalogue, search or product pages → fail, evidence "not an online shop".
    - A **storefront inside a bigger marketplace** (the URL is a sub-section, e.g. `/s/hizli-market`, a dark-store path, a `*.tmall.com` or `mall.jd.com` shop): its category, search and product pages must stay inside that storefront. If they lead out to the main marketplace (the parent site's own categories, all sellers mixed), record `open:site` needs_csm, evidence "The category/search pages leave the <storefront> and show the main <marketplace> site; CSM must confirm which site to onboard".
    - Country block ("not available in your country", a redirect to a "your region" page, or an empty or 403 page that the probe marks `geo`) → follow **Country block**.
+   - The home page keeps loading (see **Page keeps loading**) → follow that section.
    - Otherwise pass.
 6. Dismiss cookie, promo, newsletter, app-install and age popups. Note the button texts for the final `notes`.
 7. If prices only show after choosing a store or postcode, choose one (prefer a **pickup** store; the site's suggestion or the capital city's main store) and carry on. Mention it in `notes`. This is not a problem by itself.
@@ -109,7 +110,8 @@ Test choosing **pickup stores** (in-store pickup / click and collect, not a deli
 - If the site has no button to switch store once one is chosen, but the store is kept in a cookie or browser storage (localStorage/sessionStorage) that you can clear or change to pick the next store, that still counts as setting the store: the crawler sets the store by writing that saved value before loading the page. Record pass and name the key.
 - Count the selectable pickup stores if the list shows it ("count unknown" is fine).
 - Time each store change. If one change takes more than about 60 seconds or many screens, say so; very slow store setting makes it impractical for the crawler → `mla:store` needs_csm, evidence "Store can be set but it takes <n> seconds / <steps>".
-These are **not** a store change (→ `mla:store` fail): a store list or store locator you can only look at; a "check stock in store" / availability lookup that does not change what you browse; a store locator that returns no stores; only delivery addresses with no pickup stores; no store option at all.
+If the store page or store finder keeps loading, follow **Page keeps loading** first; it often only works from the retailer's country.
+These are **not** a store change (→ `mla:store` fail): a store list or store locator you can only look at (e.g. a store finder that shows addresses and opening hours after you type an address, but has no "set as my store" / "shop this store" button); a "check stock in store" / availability lookup that does not change what you browse; a store locator that returns no stores; only delivery addresses with no pickup stores; no store option at all.
 Results: 3 stores set → `mla:store` pass. Otherwise as above. This only makes the store pages not feasible, never the whole retailer.
 
 ## 7. Finish (stage `finish`)
@@ -130,13 +132,27 @@ A challenge on a later page (rare): handle it the same way in the current browse
 
 Never use BrowserOS credential, payment, upload or download tools.
 
+# Page keeps loading
+
+On **any** page (home, category, search, product, store page or store finder): the page, or the part you need (product list, price, store list), never finishes loading. Signs: a spinner, loading skeleton or blank area that stays; navigation that times out; a store finder that never returns stores.
+1. Wait about 20 seconds, then reload the page once normally. Probe and take a screenshot.
+2. A bot challenge or CAPTCHA now shows → follow **CAPTCHA handling** instead.
+3. Loaded now → carry on; mention "slow to load" in the evidence.
+4. Still loading, and no VPN was turned on yet in this check → it may only work from the retailer's country: follow **Country block** with a message like "The store page keeps loading. It may only work from Australia. Turn on a VPN set to Australia, then click Done."
+5. Still loading and the VPN is already on → it is not a country block: record the page as blocked (`dom:<page>`, or `mla:store` for store pages; `open:site` for the home page), evidence "The <page> kept loading for over a minute, also with a VPN set to <country>." Continue with the next page.
+
 # Country block (VPN)
 
-The site blocks visitors from this network's country. Onboarding uses a tunnel for that country, so this is never a reason for "not feasible".
-1. Work out the country from the retailer name suffix (e.g. `-LT` Lithuania, `-IT` Italy, `-UK` United Kingdom) or the site's language/domain.
-2. `progress` ("The site only opens from <country>. Asking you to turn on a VPN."), then `ask_human` with `kind: "vpn"`, `country`, the `url`, and a message like "Turn on a VPN set to Lithuania on this computer, then click Done."
-3. `vpn_on` → reload the page in the same browser, probe again. Opens now → `open:site` bypass_needed, evidence "Blocked outside <country>; opened with a VPN set to <country>." Continue the whole check with the VPN on. Still blocked → ask once more.
-4. `no_vpn` or `timeout`, or still blocked after the second try → `open:site` blocked, evidence "The site only opens from <country> and no VPN was available; check it by hand." Go to Finish.
+The site, or one page of it, blocks visitors from this network's country (or keeps loading, see above). Onboarding uses a tunnel for that country, so this is never a reason for "not feasible".
+1. Work out the country from the retailer name suffix (e.g. `-LT` Lithuania, `-IT` Italy, `-UK` United Kingdom, `-AU` Australia) or the site's language/domain (e.g. `.com.au`).
+2. `progress` ("The site only opens from <country>. Asking you to turn on a VPN." or "The <page> keeps loading. Asking you to turn on a VPN."), then `ask_human` with `kind: "vpn"`, `country`, the `url`, and a `message` that says why in plain words, e.g. "The site only opens from Lithuania. Turn on a VPN set to Lithuania on this computer, then click Done."
+3. `vpn_on` → **hard-refresh** the same page in the same browser exactly as the answer tells you (never a plain reload), wait 10 seconds, probe and take a screenshot.
+   - Opens now → record `open:site` bypass_needed. Evidence on the home page: "Blocked outside <country>; opened with a VPN set to <country>." Evidence for a later page: "The home page opened without a VPN, but the <page> only loaded with a VPN set to <country>." (Update `open:site` if it was already pass.) Then check that page normally and continue the **whole** check with the VPN on; do not ask again.
+   - A bot challenge shows after the refresh (the new network often triggers one) → follow **CAPTCHA handling**.
+   - Still blocked or still loading → ask once more (the VPN may not be connected yet).
+4. `no_vpn`, `timeout`, `limit_reached`, or still blocked after the second try:
+   - Home page → `open:site` blocked, evidence "The site only opens from <country> and no VPN was available; check it by hand." (or "…keeps loading, also with a VPN…" when the VPN was on). Go to Finish.
+   - A later page → record that page blocked (`dom:<page>`, or `mla:store` for store pages), evidence "The <page> kept loading and no VPN was available; check it by hand." Skip its login check and continue with the next page.
 
 # Login
 
