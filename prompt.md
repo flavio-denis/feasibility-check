@@ -74,17 +74,28 @@ After opening a page, run this probe with BrowserOS `evaluate_in_page` or chrome
 6. Dismiss cookie, promo, newsletter, app-install and age popups. Note the button texts for the final `notes`.
 7. If prices only show after choosing a store or postcode, choose one (prefer a **pickup** store; the site's suggestion or the capital city's main store) and carry on. Mention it in `notes`. This is not a problem by itself.
 
+## Client brands (client: {{client}})
+If the client is `none`, skip this section and pick any products.
+
+Otherwise the category, search and product pages must show **the client's own brands**, because onboarding will track those products.
+1. Work out the client's brands from what you know (e.g. a food company and its biscuit and chocolate brands). Brand ownership differs by country (licences, divestments); prefer brands that fit the retailer's country. If the client name is itself a brand (e.g. "Crunchy"), use that brand. If the client name is misspelt, abbreviated or given as initials, use the company it clearly means.
+2. If you do not know the client's brands, search the site for the client's name; product names or a brand filter often show the brands.
+3. Use the brands **that this retailer actually sells**: check with the site's search or brand filter, not only from memory.
+4. `progress` once with the brands you will use, e.g. "Looking for Acme Foods brands (Crunchy, Choco, Nutty) on this site."
+5. No client product anywhere on the site (search for 2 or 3 brands and the client name, all empty) → `progress` ("No <client> products found on this site. Checking the pages with other products."), then follow the normal steps with any products. This is not a fail by itself; never record a check as fail or needs_csm only because the client's brands are missing.
+6. Never invent a brand. Put in `clientBrands` only brands you saw on this site, and in `clientInfo` one plain sentence: which brands you used on which page, or that none were found.
+
 ## 2. Category (stage `category`)
-Pick a real product listing from the main menu. Open it **in the same browser tab/session**. Check:
+Pick a real product listing from the main menu. With a client: pick the category where the client's brands are sold (e.g. Biscuits or Chocolate for Acme Foods) and confirm at least one client-brand product is in the listing; say which in the evidence. Prefer a normal category from the menu; use a brand page or brand filter only when no category lists the client's products. Open it **in the same browser tab/session**. Check:
 - **Login** (`login:category`): prices and stock visible without signing in → pass. A sign-in wall, or prices hidden until sign-in → follow **Login** (once for the whole site; the other pages are then checked signed in).
 - **Product data** (`dom:category`): product tiles with name, price, image and a link. Give the tile count. Present → pass. Price only after adding to cart, or the page stays empty (data loaded later) → needs_csm. No products → fail.
 - **Prices missing but everything else there:** record needs_csm with `priceOnly: true` (on the login and/or product data check). Some retailers are onboarded without prices, so the team decides. Set `priceOnly: true` only when the price is the *only* thing missing.
 
 ## 3. Search (stage `search`)
-Use the site's own search box with a short word from a real product name you saw. Record `login:search` and `dom:search` as above. No search box anywhere → record both as `unknown`, evidence "the site has no search".
+Use the site's own search box with a short word from a real product name you saw. With a client: search for one of the client's brands (e.g. "Crunchy") and confirm the results show that brand's products; if a brand gives no results, try another client brand before falling back to any product. Record `login:search` and `dom:search` as above. No search box anywhere → record both as `unknown`, evidence "the site has no search".
 
 ## 4. Product page (stage `detail`)
-Open the first **in-stock** product from the category. Record `login:detail` and `dom:detail`. For the product data, check: name, price (and old/promo price if shown), stock or availability, main image and gallery, rating and reviews, brand, description, sizes/colours. Does the price finish loading? Name, price and availability present → pass, and list what is missing in the evidence. Look in the visible page and in embedded data (`__NEXT_DATA__`, `__NUXT__`, `__INITIAL_STATE__`, ld+json); the probe tells you which exist.
+Open the first **in-stock** product from the category. With a client: open an in-stock product of one of the client's brands (from the category or search results); if every client product is out of stock, use an out-of-stock client product and say so in the evidence. Record `login:detail` and `dom:detail`. For the product data, check: name, price (and old/promo price if shown), stock or availability, main image and gallery, rating and reviews, brand, description, sizes/colours. Does the price finish loading? Name, price and availability present → pass, and list what is missing in the evidence. Look in the visible page and in embedded data (`__NEXT_DATA__`, `__NUXT__`, `__INITIAL_STATE__`, ld+json); the probe tells you which exist.
 
 ## 5. Banners (stage `banner`, only if requested: {{banner}})
 If the app already recorded `banner:home` (for example banners are not supported for Amazon retailers), skip this step.
@@ -92,7 +103,7 @@ On the home page: hero, carousel or promo tiles with images and links → `banne
 
 ## 6. Store pages (stage `mla`, only if requested: {{mla}})
 Test choosing **pickup stores** (in-store pickup / click and collect, not a delivery address) on **category pages**:
-- Set **3 different pickup stores**: either 3 stores on one category page, or 1 store on each of 3 categories.
+- Set **3 different pickup stores**: either 3 stores on one category page, or 1 store on each of 3 categories. With a client, use the client's category from step 2.
 - After each change, confirm the page now shows the chosen store (store name in the header or store picker). Prices or listings do **not** have to change; the store changing is enough.
 - Name the stores you set, the category pages, and the cookie or saved setting that keeps the store (compare probe output before and after).
 - If the site has no button to switch store once one is chosen, but the store is kept in a cookie or browser storage (localStorage/sessionStorage) that you can clear or change to pick the next store, that still counts as setting the store: the crawler sets the store by writing that saved value before loading the page. Record pass and name the key.
@@ -142,4 +153,4 @@ Never create an account, never buy anything.
 
 # Finish
 
-When every check is recorded (or impossible), reply with the structured result: test URLs, vendors, platform, store/MLA/banner details, overlay notes, and your own one-line opinion in `agentOpinion`. The verdict is computed by the app from your recorded checks.
+When every check is recorded (or impossible), reply with the structured result: test URLs, vendors, platform, store/MLA/banner details, client brands (`clientBrands`, `clientInfo`, only when a client is given), overlay notes, and your own one-line opinion in `agentOpinion`. The verdict is computed by the app from your recorded checks.

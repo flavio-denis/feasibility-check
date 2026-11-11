@@ -30,6 +30,8 @@ const RESULT_SCHEMA = {
     storeInfo: { type: 'string' },
     mlaInfo: { type: 'string' },
     bannerInfo: { type: 'string' },
+    clientBrands: { type: 'array', items: { type: 'string' }, description: 'Client brands seen on this site and used for the test pages; empty when none were found or no client was given' },
+    clientInfo: { type: 'string', description: 'One plain sentence: which client brands were used on which page, or that none were found' },
     notes: { type: 'string', description: 'Overlay buttons, lazy loading, anything onboarding should know' },
     agentOpinion: { type: 'string' }
   },
@@ -48,12 +50,14 @@ function systemPrompt(run, neoAvailable, chromeAvailable) {
     .replaceAll('{{neoAvailable}}', neoAvailable ? 'yes' : 'no')
     .replaceAll('{{chromeAvailable}}', chromeAvailable ? 'yes' : 'no')
     .replaceAll('{{neoProfile}}', config.neoProfile)
+    .replaceAll('{{client}}', run.input.client || 'none')
 }
 
-function firstPrompt(input) {
+export function firstPrompt(input) {
   return [
     `Retailer: ${input.name}`,
     `Home URL: ${input.url}`,
+    `Client: ${input.client || 'none'}`,
     `Banner check requested: ${input.banner ? (input.bannerPolicy ? `no, already recorded by the app (${input.bannerPolicy})` : 'yes') : 'no'}`,
     `MLA check requested: ${input.mla ? 'yes' : 'no'}`,
     'Run the feasibility check now.'

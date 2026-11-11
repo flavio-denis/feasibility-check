@@ -15,7 +15,7 @@ Verdicts:
 | **Manual check needed** | No browser could open the site (e.g. country block and no VPN); check it by hand |
 | **Incomplete** | The check stopped early; run it again |
 
-Built for the COB team: plain words throughout, technical details only when you ask for them.
+Built for the COB team: plain words throughout.
 
 > **Testing phase:** the app never reads or writes Jira. The result has a "Copy report" button; paste it into the ticket yourself.
 
@@ -68,15 +68,16 @@ The app uses the **Claude Agent SDK** with the Claude Code login on your compute
 
 1. Start the app: `npm start`, then open <http://localhost:4545>.
 2. Click **New check**.
-3. Paste the **website** (home page). The **retailer name** fills in from it (`bite.lt` gives `Bite-LT`); change it to match the ticket.
-4. Tick **Banners** and/or **Store pages (multi-store)** if the ticket asks for them.
-5. Click **Start check**. Allow desktop notifications when the browser asks, so you hear about "Your turn" moments while in another tab.
-6. Watch the page cards and the **What's happening** panel. Most checks take 1–6 minutes.
-7. If an amber **Your turn** card appears, do what it says in the named window (BrowserOS or Chrome), then click its button:
+3. Paste the **website** (home page), then type the **retailer name** from the ticket. A name is suggested under the box (`bite.lt` gives `Bite-LT`); click it to use it.
+4. Optional: type the **client** (e.g. `Acme Foods`). The category, search and product pages are then checked with that client's brands (e.g. Crunchy, Choco, Nutty), and the report lists the brands used. If the site sells none of the client's brands, the pages are checked with other products and the result tells you to confirm with the CSM. Leave it empty to use any product.
+5. Tick **Banners** and/or **Store pages (multi-store)** if the ticket asks for them.
+6. Click **Start check**. Allow desktop notifications when the browser asks, so you hear about "Your turn" moments while in another tab.
+7. Watch the page cards and the **What's happening** panel. Most checks take 1–6 minutes.
+8. If an amber **Your turn** card appears, do what it says in the named window (BrowserOS or Chrome), then click its button:
    - **Prove you are human (CAPTCHA):** solve it, then click *Done, it's solved*. If you can't, click *I can't solve it* and the other browser is tried. A CAPTCHA never makes a retailer not feasible.
    - **Country block:** turn on a VPN for the named country, then click *Done, the VPN is on*.
    - **Login:** sign in yourself in the browser, *Give the tool a login* (typed into the site by the app, kept in memory only), or *No login available*. If signing in asks for a one-time code, click *Yes, it needed a one-time code*.
-8. When it finishes, follow **What to do next**: *Copy report* and paste it into the feasibility ticket, set the ticket status it names, and copy the test URLs for the onboarding ticket later.
+9. When it finishes, follow **What to do next**: *Copy report* and paste it into the feasibility ticket, set the ticket status it names, and copy the test URLs for the onboarding ticket later.
 
 Only one check runs at a time. **History** lists every check, with search and a verdict filter.
 
@@ -112,7 +113,7 @@ All optional. Set them before `npm start`, e.g. `PORT=4600 FEAS_NEO_PROFILE=Work
 | `EADDRINUSE` when starting | Another copy is already running on that port. Use it, or start with `PORT=4600 npm start` |
 | "A run is already in progress" | Only one check runs at a time (also across app windows). Open it from the live chip in the top bar, or cancel it |
 | The page shows "Interrupted" | The app was closed during the check. Click **Run again** |
-| A check's result looks wrong | Open the page cards for the evidence and screenshots, and tick *Technical details* in the activity panel for the raw steps |
+| A check's result looks wrong | Open the page cards for the evidence and screenshots. The raw steps are in `runs/<id>/events.jsonl` |
 
 ---
 

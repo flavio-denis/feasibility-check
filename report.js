@@ -95,6 +95,7 @@ export function jiraSection(run) {
   const opt = Object.entries(verdict.optional || {}).map(([k, v]) => `${k === 'mla' ? 'Store pages' : 'Banners'}: ${v}`)
   const urls = testUrlList(result)
   const rows = sortedChecks(checks)
+  const client = clientLine(input, result)
 
   const title = verdict.withoutPrices ? 'Feasible (without prices)' : verdict.core
   const decided = verdict.withoutPrices ? `Onboard without prices: decided by the ROB team${run.decisionAt ? ` on ${new Date(run.decisionAt).toISOString().slice(0, 10)}` : ''}. Prices will not be collected.` : ''
@@ -103,6 +104,7 @@ export function jiraSection(run) {
     `<p>${esc(verdictReason(checks, verdict, { loginUsed: loginUsedOf(run) }))}</p>`,
     decided ? `<p><strong>Decision:</strong> ${esc(decided)}</p>` : '',
     `<p><strong>Retailer:</strong> ${esc(input.name)} (${esc(input.url)})</p>`,
+    client ? `<p><strong>Client:</strong> ${esc(client)}</p>` : '',
     opt.length ? `<p><strong>Optional checks:</strong> ${esc(opt.join('; '))}</p>` : '',
     `<p><strong>Checks:</strong></p>`,
     `<ul>${rows.map(c => `<li>${esc(AREA_LABEL[c.area])} (${esc(c.page)}): ${esc(statusPhrase(c, { loginUsed: loginUsedOf(run) }))}. ${esc(c.evidence)}</li>`).join('')}</ul>`,
@@ -125,6 +127,7 @@ export function jiraSection(run) {
     '',
     decided ? `**Decision:** ${decided}` : '',
     `**Retailer:** ${input.name} (${input.url})`,
+    client ? `**Client:** ${client}` : '',
     opt.length ? `**Optional checks:** ${opt.join('; ')}` : '',
     '',
     '**Checks:**',
@@ -174,6 +177,17 @@ export function statusPhrase(c, { loginUsed = false } = {}) {
   return (PHRASE[c.status] && PHRASE[c.status][c.area]) || PHRASE_ANY[c.status] || c.status
 }
 
+/** "Acme Foods. Brands used: Crunchy, Choco. <clientInfo>", or null when no client was given. */
+export function clientLine(input = {}, result) {
+  if (!input.client) return null
+  if (!result) return input.client
+  const brands = result.clientBrands || []
+  const info = result.clientInfo ? ` ${result.clientInfo}` : ''
+  if (brands.length) return `${input.client}. Brands used: ${brands.join(', ')}.${info}`
+  return `${input.client}. ${result.clientInfo || `No ${input.client} products were found on this site; the pages were checked with other products.`}`
+}
+const noClientBrands = (input = {}, result) => !!(input.client && result && !(result.clientBrands || []).length)
+
 const PAGE_NAME = { site: 'home page', home: 'home page', category: 'category page', search: 'search page', detail: 'product page', store: 'store page' }
 const trim = s => String(s || '').replace(/[.\s]+$/, '')
 
@@ -209,6 +223,7 @@ export function nextSteps(verdict, checks, result, input = {}, { loginUsed = fal
       if ((verdict.bypass || []).length) out.notes.push(`Bot protection${vendors.length ? ` (${vendors.join(', ')})` : ''}: onboarding needs a bypass.`)
       if ((verdict.geo || []).length) out.notes.push('Country block: the site only opened with a VPN. Onboarding needs a tunnel for that country.')
       if ((verdict.account || []).length) out.notes.push('Login: prices need signing in. Onboarding needs a login account.')
+      if (noClientBrands(input, result)) out.notes.push(`Client: no ${input.client} products found on this site. Confirm with the CSM that ${input.client} sells here.`)
       out.note = out.notes.length ? out.notes.join(' ') : null
       break
     case 'Not feasible': {
@@ -235,6 +250,7 @@ export function nextSteps(verdict, checks, result, input = {}, { loginUsed = fal
           out.csmQuestions.push(csmQuestion(c, loginUsed))
         }
       }
+      if (noClientBrands(input, result)) out.csmQuestions.push(`We found no ${input.client} products on this site. Does ${input.client} sell on this retailer, and under which brands?`)
       out.steps.push({ text: 'Ask the CSM the questions below' })
       out.steps.push({ text: 'Paste the report into the feasibility ticket', action: 'copyReport' })
       out.steps.push({ text: 'Move the ticket to Awaiting CS Input' })

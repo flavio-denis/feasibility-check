@@ -346,8 +346,13 @@ async function showNew(againId) {
         <div class="field">
           <label for="name">Retailer name</label>
           <input class="input" id="name" name="name" placeholder="e.g. Bite-LT" maxlength="80" value="${p.name || ''}" required aria-describedby="nameHint nameErr" style="max-width:320px">
-          <div class="hint" id="nameHint">Filled in from the website. Change it to match the ticket.</div>
+          <div class="hint" id="nameHint">Use the name from the ticket.</div>
           <div class="error hidden" id="nameErr" role="alert"></div>
+        </div>
+        <div class="field">
+          <label for="client">Client <span class="faint" style="font-weight:400">(optional)</span></label>
+          <input class="input" id="client" name="client" placeholder="e.g. Acme Foods" maxlength="80" value="${p.client || ''}" aria-describedby="clientHint" style="max-width:320px">
+          <div class="hint" id="clientHint">The category, search and product pages are checked with this client’s brands (e.g. Crunchy, Choco for Acme Foods). Leave empty to use any product.</div>
         </div>
         <fieldset class="field" style="border:0;padding:0;margin:0">
           <legend style="font-size:13px;font-weight:500;margin-bottom:6px">Also check (if the ticket asks)</legend>
@@ -358,7 +363,7 @@ async function showNew(againId) {
         </fieldset>
         <div class="row">
           <button class="btn btn-primary btn-lg" id="start" type="submit" ${busy || bad.length ? 'disabled' : ''}>Start check</button>
-          <span class="faint" style="font-size:12.5px">${busy ? 'Wait for the running check, or cancel it first.' : bad.length ? 'Fix the setup problem above first.' : 'Opens a browser window. Nothing is written to Jira.'}</span>
+          <span class="faint" style="font-size:12.5px">${busy ? 'Wait for the running check, or cancel it first.' : bad.length ? 'Fix the setup problem above first.' : 'Opens a browser window.'}</span>
         </div>
       </form>
     </section>
@@ -366,7 +371,7 @@ async function showNew(againId) {
       <div class="card-head"><h2>Recent checks</h2><span class="spacer"></span>${list.length ? html`<a class="btn btn-sm btn-quiet" href="#/runs">See all</a>` : ''}</div>
       ${list.length ? list.slice(0, 5).map(r => html`
         <div class="recent-row">
-          <div><b>${r.name}</b><small>${r.host}</small></div>
+          <div><b>${r.name}</b><small>${r.host}${r.client ? ` · for ${r.client}` : ''}</small></div>
           ${r.verdict ? verdictLabel(r.verdict, r.withoutPrices) : label('unknown', statusWord(r.status))}
           <time>${when(r.startedAt)}</time>
           <div class="row" style="gap:2px"><a class="btn btn-sm btn-quiet" href="#/runs/${r.id}">Open</a><a class="btn btn-sm btn-quiet again" href="#/?again=${r.id}">Run again</a></div>
@@ -374,9 +379,17 @@ async function showNew(againId) {
     </section>`.s
 
   const f = $('#form'), url = $('#url'), name = $('#name')
-  let nameTouched = !!p.name
-  name.addEventListener('input', () => { nameTouched = !!name.value; $('#nameErr').classList.add('hidden'); name.removeAttribute('aria-invalid') })
-  url.addEventListener('input', () => { if (!nameTouched) name.value = suggestName(url.value.trim()); $('#urlErr').classList.add('hidden'); url.removeAttribute('aria-invalid') })
+  const hint = $('#nameHint')
+  // Suggest only; the name is filled in only when the user clicks the suggestion.
+  const showSuggestion = () => {
+    const s = suggestName(url.value.trim())
+    if (!s || s === name.value.trim()) { hint.textContent = 'Use the name from the ticket.'; return }
+    hint.innerHTML = html`Suggested: <button type="button" class="linkbtn" id="useName">${s}</button> · Use the name from the ticket.`.s
+    $('#useName').onclick = () => { name.value = s; name.dispatchEvent(new Event('input')); name.focus() }
+  }
+  name.addEventListener('input', () => { showSuggestion(); $('#nameErr').classList.add('hidden'); name.removeAttribute('aria-invalid') })
+  url.addEventListener('input', () => { showSuggestion(); $('#urlErr').classList.add('hidden'); url.removeAttribute('aria-invalid') })
+  showSuggestion()
   url.addEventListener('blur', () => { const v = url.value.trim(); if (v && !/^https?:\/\//i.test(v)) url.value = 'https://' + v })
   const err = (sel, input, msg) => { const e = $(sel); e.textContent = msg; e.classList.remove('hidden'); input.setAttribute('aria-invalid', 'true'); input.focus() }
   f.onsubmit = async e => {
@@ -387,7 +400,7 @@ async function showNew(againId) {
     const btn = $('#start'); btn.disabled = true; btn.innerHTML = '<span class="spin" style="border-color:rgba(255,255,255,.4);border-top-color:#fff"></span> Starting…'
     if (window.Notification && Notification.permission === 'default') Notification.requestPermission()
     try {
-      const r = await api('/api/runs', { method: 'POST', body: JSON.stringify({ name: n, url: u, banner: f.banner.checked, mla: f.mla.checked }) })
+      const r = await api('/api/runs', { method: 'POST', body: JSON.stringify({ name: n, url: u, client: f.client.value.trim(), banner: f.banner.checked, mla: f.mla.checked }) })
       location.hash = `#/runs/${r.id}`
     } catch (ex) {
       btn.disabled = false; btn.textContent = 'Start check'
@@ -409,13 +422,13 @@ async function showHistory() {
   const FILTERS = ['All', 'Feasible', 'Not feasible', 'Needs CSM', 'Manual check needed', 'Incomplete']
   let q = '', f = 'All'
   const verdictOf = r => r.verdict || 'Incomplete'
-  const hit = r => !q || `${r.name} ${r.host}`.toLowerCase().includes(q)
+  const hit = r => !q || `${r.name} ${r.host} ${r.client || ''}`.toLowerCase().includes(q)
   view.innerHTML = html`
     <div class="row"><h1 style="flex:1">History</h1><input class="input" id="q" type="search" placeholder="Search retailer or website" aria-label="Search retailer or website" style="max-width:280px;height:38px"></div>
     <div class="filters" id="filters" role="group" aria-label="Filter by verdict"></div>
     <section class="card" id="histCard"></section>`.s
   const row = r => html`<a class="hist-row" href="#/runs/${r.id}">
-      <div><b>${r.name}</b><small>${r.host}</small></div>
+      <div><b>${r.name}</b><small>${r.host}${r.client ? ` · for ${r.client}` : ''}</small></div>
       <div>${r.verdict ? verdictLabel(r.verdict, r.withoutPrices) : label('unknown', statusWord(r.status))}</div>
       <small class="vend">${(r.vendors || []).length ? `Bot protection: ${r.vendors.join(', ')}` : ''}</small>
       <time>${when(r.startedAt)}${r.endedAt ? html`<br>${took(r.endedAt - r.startedAt)}` : ''}</time>
@@ -444,7 +457,7 @@ async function showHistory() {
 async function showRun(id) {
   const s = await api(`/api/runs/${id}`).catch(() => null)
   if (!s) { view.innerHTML = html`<div class="empty card">This check doesn’t exist any more.<a class="btn" href="#/runs">Back to history</a></div>`.s; return }
-  const run = { ...s, checks: { ...(s.checks || {}) }, seq: -1, feed: [], human: null, errors: [], open: new Set(), touched: new Set(), confirmCancel: false, progressStage: null, tech: localStorage.getItem('feas.tech') === '1', pinned: true }
+  const run = { ...s, checks: { ...(s.checks || {}) }, seq: -1, feed: [], human: null, errors: [], open: new Set(), touched: new Set(), confirmCancel: false, progressStage: null, pinned: true }
   const isLive = () => isLiveStatus(run.status)
   const finishedAtLoad = !isLive()
   document.title = `${run.input.name} · Feasibility check`
@@ -456,7 +469,7 @@ async function showRun(id) {
     <div class="runbody">
       <div class="journey" id="journey"></div>
       <section class="card activity" aria-labelledby="actTitle">
-        <div class="card-head"><h2 id="actTitle">What’s happening</h2><label><input type="checkbox" id="techToggle" ${run.tech ? 'checked' : ''}> Technical details</label></div>
+        <div class="card-head"><h2 id="actTitle">What’s happening</h2></div>
         <div class="feed" id="feed" role="log" aria-live="polite" aria-relevant="additions"></div>
         <button class="btn btn-sm jump hidden" id="jump">Jump to latest</button>
       </section>
@@ -472,7 +485,7 @@ async function showRun(id) {
     else meta = html`${statusWord(run.status)}${run.endedAt ? html` · took ${took(run.endedAt - run.startedAt)}` : ''} · ${when(run.startedAt)}`
     $('#head').innerHTML = html`
       <div class="row">
-        <div class="title"><h1>${run.input.name}</h1>${safeUrl(run.input.url) ? html`<a href="${run.input.url}" target="_blank" rel="noopener">${hostOf(run.input.url)} ↗</a>` : hostOf(run.input.url)}</div>
+        <div class="title"><h1>${run.input.name}</h1>${run.input.client ? html`<span class="faint">for ${run.input.client}</span>` : ''}${safeUrl(run.input.url) ? html`<a href="${run.input.url}" target="_blank" rel="noopener">${hostOf(run.input.url)} ↗</a>` : hostOf(run.input.url)}</div>
         <div class="meta">${meta}</div>
         ${isLive() && !run.confirmCancel ? html`<button class="btn btn-sm btn-danger" data-act="cancel">Cancel</button>` : ''}
         ${!isLive() ? html`<a class="btn btn-sm" href="#/?again=${run.id}">Run again</a>` : ''}
@@ -619,14 +632,13 @@ async function showRun(id) {
 
   // --- activity feed ---
   const feedRow = e => {
-    if (e.kind === 'tech-only') return run.tech ? html`<div class="e tech"><time>${mmss(e.t - run.startedAt)}</time><span></span><span>${e.tech}</span></div>` : ''
+    if (e.kind === 'tech-only') return ''
     if (e.kind === 'act') {
-      if (run.tech) return html`<div class="e tech"><time>${mmss(e.t - run.startedAt)}</time><span></span><span>${e.tech}</span></div>`
       if (e.hideFriendly) return ''
       return html`<div class="e act"><time>${mmss(e.t - run.startedAt)}</time><span><span class="dotmark"></span></span><span>${e.text}${e.count > 1 ? html` <span class="x">×${e.count}</span>` : ''}</span></div>`
     }
     const icon = e.kind === 'res' ? si(e.status, true) : e.kind === 'step' ? html`<span class="dotmark"></span>` : e.kind === 'you' ? html`<span class="s-needs_csm">${si('needs_csm', true)}</span>` : e.kind === 'err' ? si('fail', true) : si('needs_csm', true)
-    return html`<div class="e ${e.kind}"><time>${mmss(e.t - run.startedAt)}</time><span>${icon}</span><span>${e.text}${run.tech && e.tech && e.tech !== e.text ? html`<br><span class="faint mono">${e.tech}</span>` : ''}</span></div>`
+    return html`<div class="e ${e.kind}"><time>${mmss(e.t - run.startedAt)}</time><span>${icon}</span><span>${e.text}</span></div>`
   }
   const renderFeed = () => {
     const html_ = run.feed.map(e => feedRow(e).s || '').join('')
@@ -636,7 +648,7 @@ async function showRun(id) {
   const pushFeed = e => {
     if (!e) return
     const last = run.feed[run.feed.length - 1]
-    if (e.kind === 'act' && last && last.kind === 'act' && !run.tech && last.text === e.text) { last.count = (last.count || 1) + 1; last.tech += '\n' + e.tech; return }
+    if (e.kind === 'act' && last && last.kind === 'act' && last.text === e.text) { last.count = (last.count || 1) + 1; return }
     run.feed.push(e)
   }
   feedEl.onscroll = () => {
@@ -644,13 +656,6 @@ async function showRun(id) {
     $('#jump').classList.toggle('hidden', run.pinned)
   }
   $('#jump').onclick = () => { run.pinned = true; feedEl.scrollTop = feedEl.scrollHeight; $('#jump').classList.add('hidden') }
-  $('#techToggle').onchange = e => {
-    run.tech = e.target.checked; localStorage.setItem('feas.tech', run.tech ? '1' : '0')
-    // Rebuild from the events so repeat-merging follows the new mode.
-    const evs = run.events; run.feed = []; run._started = false
-    for (const ev of evs) pushFeed(feedEntry(ev, run))
-    renderFeed()
-  }
 
   const renderAll = () => { renderHead(); renderTurn(); renderNotes(); renderResult(); renderJourney() }
 

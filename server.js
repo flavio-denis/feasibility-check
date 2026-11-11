@@ -338,7 +338,7 @@ const server = http.createServer(async (req, res) => {
         const live = runs.get(id)
         const d = live || readJson(join(RUNS_DIR, id, 'result.json')) || { input: readJson(join(RUNS_DIR, id, 'input.json')), status: ownerAlive(join(RUNS_DIR, id)) ? 'running' : 'interrupted', startedAt: statSync(join(RUNS_DIR, id)).birthtimeMs }
         return {
-          id, name: d.input?.name, url: d.input?.url, host: (() => { try { return new URL(d.input?.url).hostname.replace(/^www\./, '') } catch { return '' } })(),
+          id, name: d.input?.name, client: d.input?.client || null, url: d.input?.url, host: (() => { try { return new URL(d.input?.url).hostname.replace(/^www\./, '') } catch { return '' } })(),
           status: d.status, endReason: d.endReason || null, banner: !!d.input?.banner, mla: !!d.input?.mla,
           verdict: d.verdict?.core || null, withoutPrices: !!d.verdict?.withoutPrices, optional: d.verdict?.optional || {}, vendors: d.result?.vendors || [],
           bypass: (d.verdict?.bypass || []).map(b => b.page), startedAt: d.startedAt || null, endedAt: d.endedAt || null,
@@ -355,6 +355,8 @@ const server = http.createServer(async (req, res) => {
       const b = await body(req)
       const name = String(b.name || '').trim().slice(0, 80)
       if (!name) return send(res, 400, { error: 'Retailer name is required.' })
+      // Optional. One line, so it cannot add lines to the agent's first message.
+      const client = String(b.client || '').replace(/\s+/g, ' ').trim().slice(0, 80)
       let homeUrl
       try { homeUrl = normalizeUrl(b.url) } catch (e) { return send(res, 400, { error: e.message }) }
       const pf = await preflight()
@@ -372,7 +374,7 @@ const server = http.createServer(async (req, res) => {
 
       // Team policy: banners are not supported for Amazon retailers (ROB-23433, ROB-23439).
       const amazon = /(^|\.)amazon\.[a-z.]+$/i.test(new URL(homeUrl).hostname)
-      const run = createRun({ name, url: homeUrl, banner: !!b.banner, mla: !!b.mla, ...(amazon && b.banner ? { bannerPolicy: 'banners are not supported for Amazon retailers' } : {}) })
+      const run = createRun({ name, url: homeUrl, ...(client ? { client } : {}), banner: !!b.banner, mla: !!b.mla, ...(amazon && b.banner ? { bannerPolicy: 'banners are not supported for Amazon retailers' } : {}) })
       run.warnings = warnings
       for (const w of warnings) run.emit('warning', { text: w })
       if (run.input.bannerPolicy) run.recordCheck({ area: 'banner', page: 'home', status: 'fail', evidence: 'Banners are not supported for Amazon retailers (team policy).' })

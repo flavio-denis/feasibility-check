@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict'
 import { computeVerdict, requiredCoreKeys } from './verdict.js'
 import { detectBotBlock, classifyProbe } from './detect.js'
-import { jiraSection, verdictReason, nextSteps, statusPhrase, loginUsedOf } from './report.js'
+import { jiraSection, verdictReason, nextSteps, statusPhrase, loginUsedOf, clientLine } from './report.js'
 import { solverFor } from './solvers.js'
-import { _handleForTest as handle, fillLogin } from './agent.js'
+import { _handleForTest as handle, fillLogin, firstPrompt } from './agent.js'
 
 const allPass = Object.fromEntries(requiredCoreKeys().map(k => [k, { area: k.split(':')[0], page: k.split(':')[1], status: 'pass', evidence: 'ok' }]))
 
@@ -222,6 +222,27 @@ assert.equal(statusPhrase({ area: 'bot', status: 'bypass_needed' }), 'Bot protec
   assert.equal(computeVerdict(failPrice, { completed: true, decision: 'no_price' }).core, 'Not feasible')
   const stock = { ...allPass, 'login:detail': { area: 'login', page: 'detail', status: 'needs_csm', evidence: 'Prices and stock need a login.' } }
   assert.equal(computeVerdict(stock, { completed: true }).priceOnly, false)
+}
+
+// Client brands: optional input, never changes the verdict, flagged when no brand was found
+{
+  assert.match(firstPrompt({ name: 'Bite-LT', url: 'https://bite.lt/', client: 'Acme Foods' }), /^Client: Acme Foods$/m)
+  assert.match(firstPrompt({ name: 'Bite-LT', url: 'https://bite.lt/' }), /^Client: none$/m, 'no client = any product')
+  assert.equal(clientLine({ name: 'X' }, { clientBrands: ['Crunchy'] }), null, 'no client, no line')
+  assert.equal(clientLine({ client: 'Acme Foods' }, null), 'Acme Foods', 'run not finished: name only')
+  assert.equal(clientLine({ client: 'Acme Foods' }, { clientBrands: ['Crunchy', 'Choco'] }), 'Acme Foods. Brands used: Crunchy, Choco.')
+  assert.match(clientLine({ client: 'Acme Foods' }, { clientBrands: [] }), /No Acme Foods products were found/)
+  const feasible = computeVerdict(allPass, { completed: true })
+  const withBrands = { testUrls: {}, clientBrands: ['Crunchy'] }, noBrands = { testUrls: {}, clientBrands: [] }
+  assert.equal(nextSteps(feasible, allPass, withBrands, { client: 'Acme Foods' }).notes.length, 0, 'brands found: nothing to flag')
+  assert.match(nextSteps(feasible, allPass, noBrands, { client: 'Acme Foods' }).notes.join(' '), /no Acme Foods products/)
+  assert.equal(nextSteps(feasible, allPass, noBrands, {}).notes.length, 0, 'no client: nothing to flag')
+  const csmChecks2 = { ...allPass, 'dom:search': { ...allPass['dom:search'], status: 'needs_csm', evidence: 'x' } }
+  assert.ok(nextSteps(computeVerdict(csmChecks2, { completed: true }), csmChecks2, noBrands, { client: 'Acme Foods' }).csmQuestions.some(q => /Does Acme Foods sell/.test(q)))
+  const jr = jiraSection({ input: { name: 'R', url: 'https://r.test/', client: '<b>Evil</b>' }, checks: allPass, result: { clientBrands: ['<i>x</i>'] }, verdict: feasible, startedAt: 0, endedAt: 1 })
+  assert.ok(jr.html.includes('<strong>Client:</strong> &lt;b&gt;Evil&lt;/b&gt;') && !jr.html.includes('<i>x</i>'), 'client text escaped')
+  assert.match(jr.md, /\*\*Client:\*\* <b>Evil<\/b>\. Brands used: <i>x<\/i>\./)
+  assert.ok(!jiraSection({ input: { name: 'R', url: 'https://r.test/' }, checks: allPass, result: {}, verdict: feasible, startedAt: 0, endedAt: 1 }).md.includes('Client'), 'old runs: no client line')
 }
 
 console.log('check.js: all assertions passed')
