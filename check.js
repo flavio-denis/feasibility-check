@@ -5,7 +5,7 @@ import { detectBotBlock, classifyProbe } from './detect.js'
 import { jiraSection, verdictReason, nextSteps, statusPhrase, loginUsedOf, clientLine } from './report.js'
 import { solverFor } from './solvers.js'
 import { vpnReply } from './tools.js'
-import { _handleForTest as handle, fillLogin, firstPrompt } from './agent.js'
+import { _handleForTest as handle, fillLogin, firstPrompt, sumTokens } from './agent.js'
 
 const allPass = Object.fromEntries(requiredCoreKeys().map(k => [k, { area: k.split(':')[0], page: k.split(':')[1], status: 'pass', evidence: 'ok' }]))
 
@@ -262,6 +262,13 @@ assert.match(vpnReply(null, 3), /^limit_reached/, 'third ask is refused without 
   assert.equal(vv.optional.mla, 'Manual check needed')
   assert.ok(nextSteps(vv, ch, {}).steps.some(s => /Check the store pages by hand/.test(s.text)))
   assert.ok(!nextSteps(computeVerdict(allPass, { completed: true, options: { mla: true } }), allPass, {}).steps.some(s => /by hand/.test(s.text)), 'no step when nothing is blocked')
+}
+
+// token totals sum every model's usage
+{
+  const t = sumTokens({ a: { inputTokens: 10, outputTokens: 5, cacheReadInputTokens: 100, cacheCreationInputTokens: 20 }, b: { inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 } })
+  assert.deepEqual(t, { input: 11, output: 6, cacheRead: 100, cacheWrite: 20, total: 137 })
+  assert.equal(sumTokens(undefined).total, 0)
 }
 
 console.log('check.js: all assertions passed')

@@ -81,6 +81,19 @@ const short = v => {
   return s.length > 160 ? s.slice(0, 160) + '…' : s
 }
 
+/** Token totals across every model the run used (SDK result.modelUsage). */
+export function sumTokens(modelUsage = {}) {
+  const t = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+  for (const u of Object.values(modelUsage)) {
+    t.input += u.inputTokens || 0
+    t.output += u.outputTokens || 0
+    t.cacheRead += u.cacheReadInputTokens || 0
+    t.cacheWrite += u.cacheCreationInputTokens || 0
+  }
+  t.total = t.input + t.output + t.cacheRead + t.cacheWrite
+  return t
+}
+
 /**
  * Runs the agent for one run. Mutates run.{sessionId, result, usage, rateLimit, endReason}.
  * run: { id, input, checks, screenshotsDir, dir, abort: AbortController, emit, recordCheck, waitForHuman }
@@ -249,7 +262,7 @@ function handle(run, m) {
       break
     }
     case 'result':
-      run.usage = { costUsd: m.total_cost_usd, turns: m.num_turns, durationMs: m.duration_ms }
+      run.usage = { costUsd: m.total_cost_usd, turns: m.num_turns, durationMs: m.duration_ms, tokens: sumTokens(m.modelUsage) }
       if (m.subtype === 'success') {
         run.result = m.structured_output || null
         run.endReason = 'completed'

@@ -12,6 +12,8 @@ The person watching is from the COB team and is **not technical**. Everything th
 - `chrome-devtools` MCP (available: {{chromeAvailable}}): a fresh, clean Chrome window. The **fallback** when BrowserOS cannot get past a challenge, or the primary browser when BrowserOS is not available.
 - `feas` MCP: `progress`, `record_check`, `detect_block`, `ask_human`.
 
+**Typing into a box** (search, postcode, suburb, address): take a `snapshot` (BrowserOS `snapshot` mode `interactive`, or chrome-devtools `take_snapshot`), find the box's ref, then fill it by ref (BrowserOS `act` kind `fill` with `ref`, or chrome-devtools `fill` with `uid`). Never type "blind": no focusing a box with a page script, no `click_at` on coordinates followed by `type`. Address and postcode boxes are often a Google "Search For a Place" box that page scripts cannot see, but the snapshot lists it as a combobox. After filling it, wait 2 seconds, snapshot again, click the best suggestion (an `option`, e.g. "Sydney NSW 2000, Australia"), then click the search or Find button.
+
 # Keep the person informed (`progress`)
 
 Call `progress` every time you start a stage, and at important moments inside one (switching browser, waiting for a slow page, choosing a product):
@@ -111,6 +113,7 @@ Test choosing **pickup stores** (in-store pickup / click and collect, not a deli
 - Count the selectable pickup stores if the list shows it ("count unknown" is fine).
 - Time each store change. If one change takes more than about 60 seconds or many screens, say so; very slow store setting makes it impractical for the crawler → `mla:store` needs_csm, evidence "Store can be set but it takes <n> seconds / <steps>".
 If the store page or store finder keeps loading, follow **Page keeps loading** first; it often only works from the retailer's country.
+To search stores, type a suburb or postcode of the retailer's main city (e.g. "Sydney NSW 2000") as described under **Typing into a box**. If the box still will not take text after a fresh snapshot and fill, record `mla:store` unknown, evidence "The tool could not type into the store search box; check by hand", and continue.
 These are **not** a store change (→ `mla:store` fail): a store list or store locator you can only look at (e.g. a store finder that shows addresses and opening hours after you type an address, but has no "set as my store" / "shop this store" button); a "check stock in store" / availability lookup that does not change what you browse; a store locator that returns no stores; only delivery addresses with no pickup stores; no store option at all.
 Results: 3 stores set → `mla:store` pass. Otherwise as above. This only makes the store pages not feasible, never the whole retailer.
 
@@ -134,7 +137,8 @@ Never use BrowserOS credential, payment, upload or download tools.
 
 # Page keeps loading
 
-On **any** page (home, category, search, product, store page or store finder): the page, or the part you need (product list, price, store list), never finishes loading. Signs: a spinner, loading skeleton or blank area that stays; navigation that times out; a store finder that never returns stores.
+On **any** page (home, category, search, product, store page or store finder): the page, or the part you need (product list, price, store list), never finishes loading. Signs: a spinner, loading skeleton or blank area that stays; navigation that times out; a store finder that never returns stores **after** you searched for a place.
+Not "keeps loading": an empty list that is waiting for you to type something (a store finder before you search a suburb or postcode), or a box you could not type into. Type into it as described under **Typing into a box** first. A box that will not take typing is never a reason to ask for a VPN.
 1. Wait about 20 seconds, then reload the page once normally. Probe and take a screenshot.
 2. A bot challenge or CAPTCHA now shows → follow **CAPTCHA handling** instead.
 3. Loaded now → carry on; mention "slow to load" in the evidence.
