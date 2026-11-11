@@ -14,6 +14,17 @@ export function vpnReply(answer, asks) {
   return answer
 }
 
+/**
+ * CAPTCHA gate: ask the human only after the challenge was seen twice, at least 8 s apart
+ * (many checks pass on their own). One re-check request per situation, so a challenge the
+ * probe misses (seen only on the screenshot) still reaches the human on the next ask.
+ */
+export function captchaGate(blockedAt, rechecked) {
+  if (blockedAt.length >= 2 && blockedAt.at(-1) - blockedAt[0] >= 8000) return 'ask'
+  return rechecked ? 'ask' : 'recheck'
+}
+export const CAPTCHA_RECHECK = 'not_asked_yet: many checks pass on their own. Wait 10 seconds (browser wait tool), run the probe and detect_block again, and take a screenshot. Only if it is still blocked, call ask_human again.'
+
 const text = t => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t) }] })
 
 /**
@@ -23,6 +34,8 @@ const text = t => ({ content: [{ type: 'text', text: typeof t === 'string' ? t :
 export function makeFeasServer(run) {
   const captchaAsks = {}
   let vpnAsks = 0
+  let blockedAt = [] // times detect_block said blocked, since the last CAPTCHA answer
+  let captchaRechecked = false
 
   const recordCheck = tool(
     'record_check',
@@ -71,6 +84,7 @@ export function makeFeasServer(run) {
     },
     async ({ probe }) => {
       const c = classifyProbe(probe)
+      if (c.blocked) blockedAt.push(Date.now()); else blockedAt = []
       const s = solverFor(c.vendors)
       return text({ ...c, solver: s.solver, solverNote: s.note, solverVendor: s.vendor || null })
     }
@@ -97,6 +111,7 @@ export function makeFeasServer(run) {
     },
     async args => {
       if (args.kind === 'captcha') {
+        if (captchaGate(blockedAt, captchaRechecked) === 'recheck') { captchaRechecked = true; return text(CAPTCHA_RECHECK) }
         const v = `${args.browser || 'chrome'}:${args.vendor || 'unknown'}`
         captchaAsks[v] = (captchaAsks[v] || 0) + 1
         if (captchaAsks[v] > MAX_CAPTCHA_ASKS_PER_VENDOR) {
@@ -107,6 +122,7 @@ export function makeFeasServer(run) {
       }
       if (args.kind === 'vpn' && ++vpnAsks > MAX_VPN_ASKS) return text(vpnReply(null, vpnAsks))
       const answer = await run.waitForHuman(args, HUMAN_TIMEOUT_MS)
+      if (args.kind === 'captcha') { blockedAt = []; captchaRechecked = false }
       if (args.kind === 'vpn') return text(vpnReply(answer, vpnAsks))
       if (answer === 'credentials_ready') return text('credentials_ready: type {{LOGIN_USERNAME}} into the username/email field and {{LOGIN_PASSWORD}} into the password field, exactly as written, then submit. Never write these placeholders anywhere else.')
       return text(answer)

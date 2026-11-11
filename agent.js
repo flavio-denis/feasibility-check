@@ -41,6 +41,9 @@ const RESULT_SCHEMA = {
 // Read once at start-up, like the rest of the code, so a running app never mixes old and new rules.
 const PROMPT = readFileSync(join(HERE, 'prompt.md'), 'utf8')
 
+// Chrome is the fallback: its tools are deferred, so the agent loads them in one call before first use.
+export const CHROME_LOAD = ' Its tools are not loaded yet: before your first Chrome call, load them once with `ToolSearch` query `select:mcp__chrome-devtools__new_page,mcp__chrome-devtools__navigate_page,mcp__chrome-devtools__list_pages,mcp__chrome-devtools__select_page,mcp__chrome-devtools__close_page,mcp__chrome-devtools__take_snapshot,mcp__chrome-devtools__take_screenshot,mcp__chrome-devtools__evaluate_script,mcp__chrome-devtools__click,mcp__chrome-devtools__fill,mcp__chrome-devtools__fill_form,mcp__chrome-devtools__type_text,mcp__chrome-devtools__press_key,mcp__chrome-devtools__wait_for,mcp__chrome-devtools__handle_dialog` (max_results 20).'
+
 function systemPrompt(run, neoAvailable, chromeAvailable) {
   return PROMPT
     .replaceAll('{{probeScript}}', probeScript())
@@ -49,6 +52,7 @@ function systemPrompt(run, neoAvailable, chromeAvailable) {
     .replaceAll('{{mla}}', run.input.mla ? 'yes' : 'no')
     .replaceAll('{{neoAvailable}}', neoAvailable ? 'yes' : 'no')
     .replaceAll('{{chromeAvailable}}', chromeAvailable ? 'yes' : 'no')
+    .replaceAll('{{chromeLoad}}', neoAvailable && chromeAvailable ? CHROME_LOAD : '')
     .replaceAll('{{neoProfile}}', config.neoProfile)
     .replaceAll('{{client}}', run.input.client || 'none')
 }
@@ -108,10 +112,12 @@ export async function runAgent(run, { neoAvailable, chromeAvailable = true }) {
     command: 'npx',
     args: ['-y', CHROME_DEVTOOLS_MCP, '--isolated', '--viewport', '1366x900',
       ...(config.chromePath ? ['--executablePath', config.chromePath] : [])],
-    alwaysLoad: true,
+    // Fallback only when BrowserOS is up: keep its ~30 tool descriptions out of every step until needed (ToolSearch loads them).
+    alwaysLoad: !neoAvailable,
     timeout: 120000
   }
 
+  const chromeDeferred = neoAvailable && chromeAvailable
   const fillCredentials = input => fillLogin(input, run.creds)
 
   const neoGuard = async input => {
@@ -134,9 +140,9 @@ export async function runAgent(run, { neoAvailable, chromeAvailable = true }) {
     settingSources: [],
     persistSession: false, // nothing from a run (including a handed-over login) is saved in Claude's session files
     strictMcpConfig: true, // only the servers declared here
-    tools: [],
+    tools: chromeDeferred ? ['ToolSearch'] : [],
     mcpServers,
-    allowedTools: ['mcp__feas__*', ...(neoAvailable ? ['mcp__browseros-neo__*'] : []), ...(chromeAvailable ? ['mcp__chrome-devtools__*'] : [])],
+    allowedTools: [...(chromeDeferred ? ['ToolSearch'] : []), 'mcp__feas__*', ...(neoAvailable ? ['mcp__browseros-neo__*'] : []), ...(chromeAvailable ? ['mcp__chrome-devtools__*'] : [])],
     disallowedTools: [...NEO_DENY, 'mcp__chrome-devtools__upload_file'],
     permissionMode: 'dontAsk',
     maxTurns: config.maxTurns,

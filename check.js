@@ -4,8 +4,8 @@ import { computeVerdict, requiredCoreKeys } from './verdict.js'
 import { detectBotBlock, classifyProbe } from './detect.js'
 import { jiraSection, verdictReason, nextSteps, statusPhrase, loginUsedOf, clientLine } from './report.js'
 import { solverFor } from './solvers.js'
-import { vpnReply } from './tools.js'
-import { _handleForTest as handle, fillLogin, firstPrompt, sumTokens } from './agent.js'
+import { vpnReply, captchaGate } from './tools.js'
+import { _handleForTest as handle, fillLogin, firstPrompt, sumTokens, CHROME_LOAD } from './agent.js'
 
 const allPass = Object.fromEntries(requiredCoreKeys().map(k => [k, { area: k.split(':')[0], page: k.split(':')[1], status: 'pass', evidence: 'ok' }]))
 
@@ -269,6 +269,16 @@ assert.match(vpnReply(null, 3), /^limit_reached/, 'third ask is refused without 
   const t = sumTokens({ a: { inputTokens: 10, outputTokens: 5, cacheReadInputTokens: 100, cacheCreationInputTokens: 20 }, b: { inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 } })
   assert.deepEqual(t, { input: 11, output: 6, cacheRead: 100, cacheWrite: 20, total: 137 })
   assert.equal(sumTokens(undefined).total, 0)
+}
+
+// CAPTCHA gate: re-check first, ask after two blocked probes >= 8 s apart, never loop
+{
+  assert.equal(captchaGate([], false), 'recheck', 'first ask without a second probe is refused')
+  assert.equal(captchaGate([], true), 'ask', 'second ask always goes through (challenge only on the screenshot)')
+  assert.equal(captchaGate([1000, 3000], false), 'recheck', 'two probes too close together')
+  assert.equal(captchaGate([1000, 12000], false), 'ask', 'two blocked probes 11 s apart')
+  for (const t of ['new_page', 'navigate_page', 'take_snapshot', 'take_screenshot', 'evaluate_script', 'click', 'fill'])
+    assert.ok(CHROME_LOAD.includes('mcp__chrome-devtools__' + t + ','), 'ToolSearch loads ' + t)
 }
 
 console.log('check.js: all assertions passed')

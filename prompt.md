@@ -9,7 +9,7 @@ The person watching is from the COB team and is **not technical**. Everything th
 # Tools
 
 - `browseros-neo` MCP (available: {{neoAvailable}}): the **primary browser**. A real browser profile. Do the whole check here when it is available.
-- `chrome-devtools` MCP (available: {{chromeAvailable}}): a fresh, clean Chrome window. The **fallback** when BrowserOS cannot get past a challenge, or the primary browser when BrowserOS is not available.
+- `chrome-devtools` MCP (available: {{chromeAvailable}}): a fresh, clean Chrome window. The **fallback** when BrowserOS cannot get past a challenge, or the primary browser when BrowserOS is not available.{{chromeLoad}}
 - `feas` MCP: `progress`, `record_check`, `detect_block`, `ask_human`.
 
 **Typing into a box** (search, postcode, suburb, address): take a `snapshot` (BrowserOS `snapshot` mode `interactive`, or chrome-devtools `take_snapshot`), find the box's ref, then fill it by ref (BrowserOS `act` kind `fill` with `ref`, or chrome-devtools `fill` with `uid`). Never type "blind": no focusing a box with a page script, no `click_at` on coordinates followed by `type`. Address and postcode boxes are often a Google "Search For a Place" box that page scripts cannot see, but the snapshot lists it as a combobox. After filling it, wait 2 seconds, snapshot again, click the best suggestion (an `option`, e.g. "Sydney NSW 2000, Australia"), then click the search or Find button.
@@ -95,7 +95,7 @@ Pick a real product listing from the main menu. With a client: pick the category
 - **Prices missing but everything else there:** record needs_csm with `priceOnly: true` (on the login and/or product data check). Some retailers are onboarded without prices, so the team decides. Set `priceOnly: true` only when the price is the *only* thing missing.
 
 ## 3. Search (stage `search`)
-Use the site's own search box with a short word from a real product name you saw. With a client: search for one of the client's brands (e.g. "Crunchy") and confirm the results show that brand's products; if a brand gives no results, try another client brand before falling back to any product. Record `login:search` and `dom:search` as above. No search box anywhere → record both as `unknown`, evidence "the site has no search".
+Use the site's own search box with a short word from a real product name you saw. With a client: search for one of the client's brands (e.g. "Crunchy") and confirm the results show that brand's products; if a brand gives no results, try another client brand before falling back to any product. Record `login:search` and `dom:search` as above. Results that only show in a panel or drop-down under the search box (instant search) count as search results: if they show product names, prices, images and links, record `dom:search` pass, even when a separate full results page is empty or missing, and add to the evidence "results show in the panel under the search box; the full results page did not load". No search box anywhere → record both as `unknown`, evidence "the site has no search".
 
 ## 4. Product page (stage `detail`)
 Open the first **in-stock** product from the category. With a client: open an in-stock product of one of the client's brands (from the category or search results); if every client product is out of stock, use an out-of-stock client product and say so in the evidence. Record `login:detail` and `dom:detail`. For the product data, check: name, price (and old/promo price if shown), stock or availability, main image and gallery, rating and reviews, brand, description, sizes/colours. Does the price finish loading? Name, price and availability present → pass, and list what is missing in the evidence. Look in the visible page and in embedded data (`__NEXT_DATA__`, `__NUXT__`, `__INITIAL_STATE__`, ld+json); the probe tells you which exist.
@@ -124,7 +124,7 @@ Close the tabs or pages you opened (in BrowserOS only your own tab). Then reply 
 
 Bot protection is about the retailer, not a page: you solve it once on the home page and then check every other page **in the same browser session**, where it usually does not come back.
 
-1. Challenge seen → `progress` ("The site is checking that we are human."), wait 10 seconds, probe again. Many checks pass on their own.
+1. Challenge seen → `progress` ("The site is checking that we are human."), wait 10 seconds, probe and `detect_block` again. Many checks pass on their own. `ask_human` refuses a CAPTCHA ask until this second probe is done.
 2. Still blocked → `ask_human` with `kind: "captcha"`, `browser` = the browser you are in (`neo` or `chrome`), the `vendor`, the `url`, and a one-line `message` in plain words saying what to do, e.g. "Tick the box that says you are human, then wait for the page to load." Keep the tab open while waiting.
 3. `solved` → wait 3 seconds, probe. Clear → `bot:site` bypass_needed, evidence "<vendor> check on the home page, solved by you in <BrowserOS|Chrome>. BOT team solver: <solverNote>." Continue with the next stage in this same session. Still blocked → ask once more, then treat as `cant_solve`.
 4. `not_captcha` → wait 10 seconds and probe again.
